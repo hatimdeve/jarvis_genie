@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JARVIS Genie - Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F0F2F5;--surface:#fff;--border:#DDE3ED;
+  --blue:#1F3864;--blue-mid:#2E5FAC;--blue-light:#EEF4FB;
+  --ok:#16A34A;--ok-bg:#DCFCE7;
+  --ko:#DC2626;--ko-bg:#FEE2E2;
+  --empty:#94A3B8;--empty-bg:#F1F5F9;
+  --orange:#F4A020;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);min-height:100vh;}
+
+/* UPLOAD */
+#upload-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:20px;padding:40px;}
+#upload-screen h1{font-size:22px;font-weight:700;color:var(--blue);}
+#upload-screen p{font-size:13px;color:#64748B;text-align:center;max-width:420px;line-height:1.6;}
+#drop-zone{width:100%;max-width:460px;border:2px dashed var(--blue-mid);border-radius:12px;padding:44px 32px;text-align:center;cursor:pointer;background:#fff;transition:all .2s;}
+#drop-zone:hover,#drop-zone.over{background:var(--blue-light);border-color:var(--blue);}
+#drop-zone p{font-size:13px;color:#64748B;}
+#drop-zone strong{color:var(--blue-mid);}
+#file-input{display:none;}
+#browse-btn{margin-top:14px;display:inline-block;padding:8px 22px;background:var(--blue);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+#error-msg{color:var(--ko);background:var(--ko-bg);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600;display:none;max-width:460px;width:100%;}
+.col-hints{background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:14px 18px;max-width:460px;width:100%;}
+.col-hints p{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.col-tags{display:flex;flex-wrap:wrap;gap:6px;}
+.col-tag{background:var(--blue-light);color:var(--blue-mid);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;font-family:monospace;}
+
+/* DASHBOARD */
+#dashboard{display:none;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* Header */
+#header{height:50px;background:var(--blue);display:flex;align-items:center;justify-content:space-between;padding:0 18px;flex-shrink:0;}
+#hlogo{width:30px;height:30px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;margin-right:10px;}
+.h-title{color:#fff;font-size:14px;font-weight:700;}
+.h-sub{color:rgba(255,255,255,.45);font-size:10px;}
+#file-tag{background:rgba(255,255,255,.12);color:rgba(255,255,255,.65);border-radius:4px;padding:2px 8px;font-size:10px;}
+#iter-tag{background:rgba(255,255,255,.12);color:rgba(255,255,255,.65);border-radius:4px;padding:2px 8px;font-size:10px;}
+#reload-btn{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:4px 11px;font-size:10px;font-weight:600;cursor:pointer;}
+#reload-btn:hover{background:rgba(255,255,255,.25);}
+
+/* Nav tabs */
+#nav-tabs{display:flex;background:var(--blue);border-top:1px solid rgba(255,255,255,.12);flex-shrink:0;}
+.nav-tab{padding:9px 20px;font-size:12px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;}
+.nav-tab:hover{color:#fff;}
+.nav-tab.active{color:#fff;border-bottom-color:var(--orange);}
+
+/* KPI */
+#kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 18px;background:var(--blue);border-top:1px solid rgba(255,255,255,.1);flex-shrink:0;}
+.kpi{background:rgba(255,255,255,.09);border-radius:7px;padding:10px 13px;}
+.kpi-val{font-size:22px;font-weight:700;color:#fff;line-height:1;}
+.kpi-label{font-size:9px;color:rgba(255,255,255,.5);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+.kpi-bar{height:3px;background:rgba(255,255,255,.15);border-radius:2px;margin-top:6px;}
+.kpi-bar-fill{height:100%;border-radius:2px;transition:width .4s;}
+.k-ok .kpi-bar-fill{background:#4ADE80;}
+.k-ko .kpi-bar-fill{background:#F87171;}
+.k-empty .kpi-bar-fill{background:rgba(255,255,255,.3);}
+
+/* Slicers */
+#slicer-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:7px 18px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sl-label{font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+.sl-sep{width:1px;height:18px;background:var(--border);margin:0 3px;}
+.chip{padding:3px 10px;border-radius:12px;border:1.5px solid var(--border);background:#fff;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;color:#475569;white-space:nowrap;}
+.chip:hover{border-color:var(--blue-mid);color:var(--blue-mid);}
+.chip.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.chip.c-ok.active{background:var(--ok);border-color:var(--ok);}
+.chip.c-ko.active{background:var(--ko);border-color:var(--ko);}
+.chip.c-empty.active{background:var(--empty);border-color:var(--empty);color:#fff;}
+.chip.c-uc1.active{background:#2563EB;border-color:#2563EB;}
+.chip.c-uc2.active{background:#DC6803;border-color:#DC6803;}
+.chip.c-uc3.active{background:#16A34A;border-color:#16A34A;}
+#search-box{margin-left:auto;padding:4px 12px 4px 28px;border:1.5px solid var(--border);border-radius:18px;font-size:11px;color:#333;outline:none;width:190px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 8px center;}
+#search-box:focus{border-color:var(--blue-mid);}
+
+/* Subdomain */
+#subdomain-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 18px;background:#FAFBFC;border-bottom:1px solid var(--border);flex-shrink:0;min-height:34px;}
+.sub-chip{padding:2px 9px;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-size:10px;font-weight:700;cursor:pointer;transition:all .12s;color:#64748B;font-family:monospace;}
+.sub-chip:hover{border-color:var(--blue-mid);color:var(--blue-mid);}
+.sub-chip.active{color:#fff;border-color:transparent;}
+
+/* Main body */
+#main-body{display:flex;flex:1;overflow:hidden;}
+#uc-panel{width:240px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);overflow-y:auto;padding:6px 0;}
+.uc-group-label{padding:10px 13px 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.uc-row{padding:8px 13px;cursor:pointer;border-left:3px solid transparent;transition:all .12s;display:flex;align-items:center;gap:7px;}
+.uc-row:hover{background:#F8FAFC;}
+.uc-row.active{background:var(--blue-light);border-left-color:var(--blue-mid);}
+.uc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.uc-name{font-size:11px;color:#334155;line-height:1.3;flex:1;}
+.uc-row.active .uc-name{color:var(--blue);font-weight:600;}
+.uc-count{font-size:9px;font-weight:700;background:var(--blue-light);color:var(--blue-mid);border-radius:9px;padding:1px 6px;}
+
+/* Q panel */
+#q-panel{flex:1;overflow-y:auto;padding:14px;}
+#q-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px;}
+#uc-info h2{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:3px;}
+#uc-info p{font-size:11px;color:#64748B;line-height:1.5;}
+#uc-stats{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;}
+.mini-pill{padding:3px 9px;border-radius:7px;font-size:10px;font-weight:700;}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{background:var(--blue);color:#fff;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:8px 11px;text-align:left;position:sticky;top:0;z-index:2;}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+tbody tr:hover{background:#F8FAFC;}
+tbody tr.expanded{background:var(--blue-light);}
+td{padding:9px 11px;vertical-align:middle;color:#334155;}
+.td-no{width:32px;font-weight:700;color:#94A3B8;font-size:10px;}
+.td-q{font-weight:500;line-height:1.4;}
+.s-pill{display:inline-block;padding:2px 8px;border-radius:9px;font-size:10px;font-weight:700;}
+.s-ok{background:var(--ok-bg);color:var(--ok);}
+.s-ko{background:var(--ko-bg);color:var(--ko);}
+.s-empty{background:var(--empty-bg);color:var(--empty);}
+
+/* Expanded row */
+.exp-row td{background:#F8FAFC;padding:0 !important;border-bottom:2px solid var(--blue-light) !important;}
+.iter-tabs{display:flex;border-bottom:1px solid var(--border);background:#fff;}
+.iter-tab{padding:8px 16px;font-size:11px;font-weight:600;color:#94A3B8;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:6px;}
+.iter-tab:hover{color:var(--blue-mid);}
+.iter-tab.active{color:var(--blue);border-bottom-color:var(--blue-mid);}
+.iter-panels{padding:14px 16px;}
+.iter-panel{display:none;}
+.iter-panel.active{display:block;}
+.iter-panel-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#94A3B8;margin-bottom:8px;display:flex;align-items:center;gap:7px;}
+.prompt-box{background:#fff;border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:11px;color:#334155;line-height:1.6;white-space:pre-wrap;word-break:break-word;position:relative;}
+.prompt-none{font-size:11px;color:#CBD5E1;font-style:italic;padding:6px 0;}
+.copy-btn{position:absolute;top:5px;right:5px;background:var(--blue-mid);color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;cursor:pointer;opacity:0;transition:opacity .15s;}
+.prompt-box:hover .copy-btn{opacity:1;}
+
+/* Submit panel */
+#submit-panel{display:none;flex:1;overflow-y:auto;padding:24px;}
+.submit-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:24px;max-width:680px;margin:0 auto;}
+.submit-card h2{font-size:16px;font-weight:700;color:var(--blue);margin-bottom:4px;}
+.sub-desc{font-size:12px;color:#64748B;margin-bottom:22px;line-height:1.5;}
+.form-group{margin-bottom:16px;}
+.form-label{display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.req{color:var(--ko);margin-left:2px;}
+.form-select,.form-input,.form-textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;color:#334155;outline:none;transition:border-color .15s;background:#fff;}
+.form-select:focus,.form-input:focus,.form-textarea:focus{border-color:var(--blue-mid);}
+.form-textarea{resize:vertical;min-height:80px;line-height:1.6;}
+.form-hint{font-size:10px;color:#94A3B8;margin-top:4px;}
+.form-section{background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:16px;}
+.form-section-title{font-size:11px;font-weight:700;color:var(--blue-mid);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;}
+.type-toggle{display:flex;gap:8px;margin-bottom:0;}
+.type-btn{flex:1;padding:10px;border:1.5px solid var(--border);border-radius:8px;background:#fff;font-size:11px;font-weight:600;cursor:pointer;color:#475569;text-align:center;transition:all .15s;line-height:1.4;}
+.type-btn:hover{border-color:var(--blue-mid);color:var(--blue-mid);}
+.type-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.q-add-row{display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;}
+.q-add-row textarea{flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;color:#334155;outline:none;resize:none;height:52px;line-height:1.5;}
+.q-add-row textarea:focus{border-color:var(--blue-mid);}
+.q-add-row button{padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;color:#94A3B8;font-size:14px;flex-shrink:0;transition:all .15s;}
+.q-add-row button:hover{border-color:var(--ko);color:var(--ko);}
+.add-q-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--blue-light);border:1.5px dashed var(--blue-mid);border-radius:6px;color:var(--blue-mid);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;margin-top:4px;}
+.add-q-btn:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+.submit-btn{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;}
+.submit-btn:hover{background:var(--blue-mid);}
+.submit-success{display:none;text-align:center;padding:40px 20px;}
+.submit-success h3{font-size:16px;font-weight:700;color:var(--ok);margin-bottom:6px;}
+.submit-success p{font-size:12px;color:#64748B;margin-bottom:16px;}
+.submit-success button{padding:8px 20px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;}
+.hidden{display:none !important;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div style="width:64px;height:64px;background:#1F3864;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;box-shadow:0 4px 20px rgba(31,56,100,.3);">J</div>
+  <h1>JARVIS Genie &mdash; Validation Dashboard</h1>
+  <p>Connected to <strong>JarvisData</strong> on Google Sheets. Click below to load the latest data.</p>
+
+  <button id="sp-load-btn" onclick="loadFromSharePoint()" style="padding:14px 36px;background:#1F3864;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(31,56,100,.25);">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Load from SharePoint
+  </button>
+
+  <div id="sp-loading" style="display:none;text-align:center;">
+    <div style="width:36px;height:36px;border:3px solid #EEF4FB;border-top-color:#2E5FAC;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div>
+    <p style="color:#64748B;font-size:13px;">Loading JarvisData from SharePoint...</p>
+  </div>
+
+  <div id="error-msg" style="display:none;"></div>
+
+  <div style="background:#F8FAFC;border:1px solid #DDE3ED;border-radius:10px;padding:16px 20px;max-width:440px;width:100%;text-align:center;">
+    <p style="font-size:11px;color:#94A3B8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">SharePoint Source</p>
+    <p style="font-size:12px;color:#334155;font-family:monospace;">script.google.com</p>
+    <p style="font-size:12px;color:#334155;font-family:monospace;">Google Apps Script → JarvisData Sheet</p>
+    <p style="font-size:11px;color:#94A3B8;margin-top:8px;">Auto-sync with Google Sheets on every load</p>
+  </div>
+
+  <p style="font-size:11px;color:#94A3B8;text-align:center;max-width:400px;line-height:1.6;">
+    Or load a local file if SharePoint is not accessible:
+    <label style="color:#2E5FAC;font-weight:600;cursor:pointer;text-decoration:underline;">
+      Browse local file
+      <input type="file" id="file-input" accept=".xlsx,.xls" onchange="loadFile(this.files[0])" style="display:none;">
+    </label>
+  </p>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div id="header">
+    <div style="display:flex;align-items:center;">
+      <div id="hlogo">J</div>
+      <div>
+        <div class="h-title">JARVIS Genie &mdash; Validation Dashboard</div>
+        <div class="h-sub">Prompt Testing &amp; Status Tracker</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="file-tag"></span>
+      <span id="iter-tag"></span>
+      <button id="reload-btn" onclick="resetDashboard()">&#8635; Change file</button>
+    </div>
+  </div>
+
+  <!-- Nav tabs -->
+  <div id="nav-tabs">
+    <div class="nav-tab active" onclick="switchView('tracker', this)">Tracker</div>
+    <div class="nav-tab" onclick="switchView('submit', this)">+ Submit UC / Questions</div>
+  </div>
+
+  <!-- KPI strip -->
+  <div id="kpi-strip">
+    <div class="kpi"><div class="kpi-val" id="k-total">0</div><div class="kpi-label">Total Questions</div><div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%;background:rgba(255,255,255,.35)"></div></div></div>
+    <div class="kpi k-ok"><div class="kpi-val" id="k-ok">0</div><div class="kpi-label">OK</div><div class="kpi-bar"><div class="kpi-bar-fill" id="kb-ok" style="width:0%"></div></div></div>
+    <div class="kpi k-ko"><div class="kpi-val" id="k-ko">0</div><div class="kpi-label">KO</div><div class="kpi-bar"><div class="kpi-bar-fill" id="kb-ko" style="width:0%"></div></div></div>
+    <div class="kpi k-empty"><div class="kpi-val" id="k-empty">0</div><div class="kpi-label">Not Tested</div><div class="kpi-bar"><div class="kpi-bar-fill" id="kb-empty" style="width:0%"></div></div></div>
+  </div>
+
+  <!-- Slicers -->
+  <div id="slicer-row">
+    <span class="sl-label">Domain</span>
+    <span class="chip active" onclick="setDomain('all',this)">All</span>
+    <span class="chip c-uc1" onclick="setDomain('UC1',this)">UC1 &mdash; Fleets &amp; Signals</span>
+    <span class="chip c-uc2" onclick="setDomain('UC2',this)">UC2 &mdash; ADAS Anomaly</span>
+    <span class="chip c-uc3" onclick="setDomain('UC3',this)">UC3 &mdash; Pipeline</span>
+    <div class="sl-sep"></div>
+    <span class="sl-label">Status</span>
+    <span class="chip active" onclick="setStatus('all',this)">All</span>
+    <span class="chip c-ok" onclick="setStatus('OK',this)">OK</span>
+    <span class="chip c-ko" onclick="setStatus('KO',this)">KO</span>
+    <span class="chip c-empty" onclick="setStatus('empty',this)">Not tested</span>
+    <input id="search-box" type="text" placeholder="Search questions..." oninput="render()">
+  </div>
+
+  <!-- Subdomain row -->
+  <div id="subdomain-row"></div>
+
+  <!-- Tracker -->
+  <div id="main-body">
+    <div id="uc-panel"></div>
+    <div id="q-panel">
+      <div id="q-header">
+        <div id="uc-info"><h2>Select a use case</h2><p></p></div>
+        <div id="uc-stats"></div>
+      </div>
+      <table>
+        <thead><tr id="thead-row"></tr></thead>
+        <tbody id="q-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Submit panel -->
+  <div id="submit-panel">
+    <div class="submit-card" id="submit-form-wrap">
+      <h2>Submit a contribution</h2>
+      <p class="sub-desc">Add questions to an existing UC, create a new UC, or suggest a new domain. Saves directly to <strong>genie.xlsx</strong> on SharePoint via Power Automate.</p>
+
+      <div class="form-group">
+        <label class="form-label">Type of submission <span class="req">*</span></label>
+        <div class="type-toggle">
+          <button class="type-btn active" onclick="setSubmitType('questions',this)">Add questions<br>to existing UC</button>
+          <button class="type-btn" onclick="setSubmitType('new-uc',this)">New UC<br>+ questions</button>
+          <button class="type-btn" onclick="setSubmitType('new-domain',this)">New Domain<br>+ UC + questions</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="grp-existing-uc">
+        <label class="form-label">Target use case <span class="req">*</span></label>
+        <select class="form-select" id="sel-uc">
+          <option value="">-- Select a UC --</option>
+        </select>
+        <p class="form-hint">&#9889; Loaded dynamically from JarvisData &mdash; auto-updates when new UCs are added.</p>
+      </div>
+
+      <div class="form-group hidden" id="grp-domain">
+        <label class="form-label">New domain name <span class="req">*</span></label>
+        <input class="form-input" id="inp-domain" type="text" placeholder="e.g. UC4 - Battery and Energy Management">
+      </div>
+
+      <div class="form-section hidden" id="grp-new-uc">
+        <div class="form-section-title">New Use Case</div>
+        <div class="form-group">
+          <label class="form-label">UC ID <span class="req">*</span></label>
+          <input class="form-input" id="inp-uc-id" type="text" placeholder="e.g. UC2.8">
+        </div>
+        <div class="form-group">
+          <label class="form-label">UC Title <span class="req">*</span></label>
+          <input class="form-input" id="inp-uc-title" type="text" placeholder="e.g. Speed Profile Analysis">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Context / Description</label>
+          <textarea class="form-textarea" id="inp-uc-context" placeholder="What business problem does this UC solve? What tables / signals are involved?"></textarea>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Questions to add</div>
+        <div id="questions-list"></div>
+        <button class="add-q-btn" onclick="addQuestionRow()">+ Add another question</button>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Submitter (optional)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Name</label>
+            <input class="form-input" id="inp-name" type="text" placeholder="First + Last name">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Team / Role</label>
+            <input class="form-input" id="inp-role" type="text" placeholder="e.g. KPI Analyst">
+          </div>
+        </div>
+      </div>
+
+      <button class="submit-btn" onclick="submitForm()" id="submit-btn-main">&#128190; Save to Excel (SharePoint)</button>
+    </div>
+
+    <div class="submit-success" id="submit-success-wrap">
+      <div style="font-size:48px;margin-bottom:12px;color:#16A34A;">&#10003;</div>
+      <h3>Saved to SharePoint!</h3>
+      <p>Your question has been written directly to <strong>genie.xlsx</strong> and is now visible in the Tracker.</p>
+      <button onclick="resetSubmitForm()">Submit another</button>
+      <button onclick="switchViewById('tracker')" style="margin-left:8px;background:#EEF4FB;color:#1F3864;border:none;border-radius:7px;padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer;">Go to Tracker</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+var DATA = [];
+var ITERS = [];
+var domainFilter = 'all';
+var statusFilter = 'all';
+var subFilter    = 'all';
+var activeUC     = null;
+var expandedID   = null;
+var submitType   = 'questions';
+var qCount       = 0;
+
+var domColor = { UC1:'#2563EB', UC2:'#DC6803', UC3:'#16A34A' };
+
+// ── HELPERS ──
+function domKey(d) {
+  if (!d) return 'UC1';
+  if (d.indexOf('UC1') >= 0) return 'UC1';
+  if (d.indexOf('UC2') >= 0) return 'UC2';
+  return 'UC3';
+}
+
+function subKey(sheet) {
+  if (!sheet) return '';
+  var m = String(sheet).match(/^(UC[0-9]+\.[0-9]+)/);
+  return m ? m[1] : String(sheet);
+}
+
+function sc(s) {
+  if (!s || !s.toString().trim()) return 's-empty';
+  var v = s.toString().toUpperCase();
+  if (v === 'OK') return 's-ok';
+  if (v === 'KO') return 's-ko';
+  return 's-empty';
+}
+
+function sl(s) { return (s && s.toString().trim()) ? s : '&mdash;'; }
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function statusOfRow(r) {
+  for (var i = ITERS.length - 1; i >= 0; i--) {
+    var s = (r['Status_Iter' + ITERS[i]] || '').toString().trim();
+    if (s) return s;
+  }
+  return '';
+}
+
+function showError(msg) {
+  var el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// ── DETECT ITERS ──
+function detectIters(rows) {
+  if (!rows.length) return [1];
+  var cols = Object.keys(rows[0]);
+  var nums = {};
+  for (var i = 0; i < cols.length; i++) {
+    var m = cols[i].match(/^Prompt_Iter([0-9]+)$/i);
+    if (m) nums[parseInt(m[1])] = true;
+  }
+  var arr = Object.keys(nums).map(Number).sort(function(a,b){return a-b;});
+  return arr.length ? arr : [1];
+}
+
+// ── UPLOAD ──
+// ── SHAREPOINT CONFIG ──
+var SP_WEBURL   = 'https://script.google.com/personal/sf50822_inetpsa_com';
+var SP_FILE     = '/Documents/genie.xlsx';
+// Power Automate HTTP trigger URL — set this after creating the flow
+var PA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzZgY3kzDeNWY9EBth3u9t7fLAoaNhyRKeHnKYQvdCJ6dqEq-IGC8R-zO-VSZcx0Hxxow/exec'; // TODO: paste your Power Automate URL here
+var PA_READ_URL   = 'https://script.google.com/macros/s/AKfycbzZgY3kzDeNWY9EBth3u9t7fLAoaNhyRKeHnKYQvdCJ6dqEq-IGC8R-zO-VSZcx0Hxxow/exec'; // TODO: paste your Power Automate read URL here (optional)
+
+function dzOver(e)  { e.preventDefault(); }
+function dzLeave(e) { e.preventDefault(); }
+function dzDrop(e)  { e.preventDefault(); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); }
+
+// ── LOAD FROM SHAREPOINT via Power Automate ──
+function loadFromSharePoint() {
+  var btn = document.getElementById('sp-load-btn');
+  var loading = document.getElementById('sp-loading');
+  showError('');
+
+  btn.style.display = 'none';
+  loading.style.display = 'block';
+
+  fetch(PA_READ_URL)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(json) {
+      var rows = json.rows || json;
+      if (!rows || !rows.length) throw new Error('No data returned from Google Sheets');
+      initDashboard(rows, 'JarvisData (Google Sheets)');
+    })
+    .catch(function(err) {
+      loading.style.display = 'none';
+      btn.style.display = 'flex';
+      showError('Load failed: ' + err.message + '. Use local file below.');
+    });
+}
+
+// ── LOAD FROM LOCAL FILE (fallback) ──
+function loadFile(file) {
+  if (!file) return;
+  showError('');
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      var sn = wb.SheetNames[0];
+      for (var i = 0; i < wb.SheetNames.length; i++) {
+        var n = wb.SheetNames[i].toLowerCase();
+        if (n.indexOf('flat') >= 0 || n.indexOf('jarvis') >= 0 || n.indexOf('genie') >= 0) { sn = wb.SheetNames[i]; break; }
+      }
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: '' });
+      if (!rows.length) { showError('Empty file or wrong format.'); return; }
+      initDashboard(rows, file.name + ' (local)');
+    } catch(err) { showError('Error: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── INIT DASHBOARD with data ──
+function initDashboard(rows, sourceName) {
+  var req = ['Domain','UC_Sheet','Question'];
+  var cols = Object.keys(rows[0] || {});
+  var miss = req.filter(function(c){ return cols.indexOf(c) < 0; });
+  if (miss.length) { showError('Missing columns: ' + miss.join(', ')); return; }
+
+  DATA = rows.map(function(r) {
+    var out = {};
+    Object.keys(r).forEach(function(k){ out[k] = String(r[k] || '').trim(); });
+    return out;
+  });
+
+  ITERS = detectIters(DATA);
+  document.getElementById('file-tag').textContent = sourceName;
+  document.getElementById('iter-tag').textContent = ITERS.length + ' iter' + (ITERS.length > 1 ? 's' : '');
+  document.getElementById('sp-loading').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'flex';
+
+  activeUC = DATA.length ? DATA[0].UC_Sheet : null;
+  domainFilter = 'all'; statusFilter = 'all'; subFilter = 'all';
+  buildTableHead();
+  addQuestionRow();
+  render();
+}
+
+function resetDashboard() {
+  DATA = []; ITERS = []; activeUC = null;
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('file-input').value = '';
+  var btn = document.getElementById('sp-load-btn');
+  if (btn) btn.style.display = 'flex';
+  document.getElementById('sp-loading').style.display = 'none';
+}
+
+function switchViewById(view) {
+  var btn = document.querySelector('.nav-tab');
+  if (view === 'tracker') btn.click();
+}
+
+// ── TABLE HEAD ──
+function buildTableHead() {
+  var tr = document.getElementById('thead-row');
+  var html = '<th style="width:32px">#</th><th>Question</th><th style="width:260px">Iterations</th>';
+  tr.innerHTML = html;
+}
+
+// ── FILTERS ──
+function setDomain(d, btn) {
+  domainFilter = d; subFilter = 'all'; activeUC = null; expandedID = null;
+  document.querySelectorAll('#slicer-row .chip').forEach(function(b){ if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('setDomain') >= 0) b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('uc-info').innerHTML = '<h2>Select a use case</h2><p></p>';
+  document.getElementById('uc-stats').innerHTML = '';
+  render();
+}
+
+function setStatus(s, btn) {
+  statusFilter = s;
+  document.querySelectorAll('#slicer-row .chip').forEach(function(b){ if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('setStatus') >= 0) b.classList.remove('active'); });
+  btn.classList.add('active');
+  render();
+}
+
+function setSub(s, btn) {
+  subFilter = s; activeUC = null; expandedID = null;
+  document.querySelectorAll('#subdomain-row .sub-chip').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('uc-info').innerHTML = '<h2>Select a use case</h2><p></p>';
+  document.getElementById('uc-stats').innerHTML = '';
+  if (s !== 'all') {
+    for (var i = 0; i < DATA.length; i++) {
+      if (subKey(DATA[i].UC_Sheet) === s) { activeUC = DATA[i].UC_Sheet; break; }
+    }
+  }
+  render();
+}
+
+// ── FILTERED ROWS ──
+function visibleRows() {
+  var q = (document.getElementById('search-box') || { value: '' }).value.toLowerCase();
+  return DATA.filter(function(r) {
+    if (domainFilter !== 'all' && r.Domain.indexOf(domainFilter) < 0) return false;
+    if (subFilter !== 'all' && subKey(r.UC_Sheet) !== subFilter) return false;
+    if (activeUC && r.UC_Sheet !== activeUC) return false;
+    if (statusFilter !== 'all') {
+      var s = statusOfRow(r).toLowerCase();
+      if (statusFilter === 'empty' && s) return false;
+      if (statusFilter !== 'empty' && s !== statusFilter.toLowerCase()) return false;
+    }
+    if (q && (r.Question || '').toLowerCase().indexOf(q) < 0 && (r.UC_Title || '').toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+// ── RENDER ──
+function render() { renderKPIs(); renderSubdomains(); renderUCPanel(); renderTable(); }
+
+function renderKPIs() {
+  var rows = DATA.filter(function(r){ return domainFilter === 'all' || r.Domain.indexOf(domainFilter) >= 0; });
+  var total = rows.length;
+  var ok    = rows.filter(function(r){ return statusOfRow(r).toUpperCase() === 'OK'; }).length;
+  var ko    = rows.filter(function(r){ return statusOfRow(r).toUpperCase() === 'KO'; }).length;
+  var empty = rows.filter(function(r){ return !statusOfRow(r); }).length;
+  function pct(v) { return total ? (v / total * 100).toFixed(0) + '%' : '0%'; }
+  document.getElementById('k-total').textContent = total;
+  document.getElementById('k-ok').textContent    = ok;
+  document.getElementById('k-ko').textContent    = ko;
+  document.getElementById('k-empty').textContent = empty;
+  document.getElementById('kb-ok').style.width    = pct(ok);
+  document.getElementById('kb-ko').style.width    = pct(ko);
+  document.getElementById('kb-empty').style.width = pct(empty);
+}
+
+function renderSubdomains() {
+  var row  = document.getElementById('subdomain-row');
+  var pool = DATA.filter(function(r){ return domainFilter === 'all' || r.Domain.indexOf(domainFilter) >= 0; });
+  var seen = {}, subs = [];
+  pool.forEach(function(r){ var k = subKey(r.UC_Sheet); if (!seen[k]) { seen[k] = true; subs.push({ key: k, domain: r.Domain }); } });
+
+  row.innerHTML = '<span class="sl-label" style="min-width:80px">Sub-domain</span>';
+
+  var allC = document.createElement('span');
+  allC.className = 'sub-chip' + (subFilter === 'all' ? ' active' : '');
+  allC.textContent = 'All';
+  if (subFilter === 'all') allC.style.background = domainFilter === 'all' ? '#475569' : (domColor[domainFilter] || '#475569');
+  allC.onclick = function() { setSub('all', allC); };
+  row.appendChild(allC);
+
+  subs.forEach(function(s) {
+    var c = document.createElement('span');
+    c.className = 'sub-chip' + (subFilter === s.key ? ' active' : '');
+    c.textContent = s.key;
+    var color = domColor[domKey(s.domain)] || '#475569';
+    if (subFilter === s.key) c.style.background = color;
+    c.onclick = (function(sk, el){ return function(){ setSub(sk, el); }; })(s.key, c);
+    row.appendChild(c);
+  });
+}
+
+function renderUCPanel() {
+  var panel = document.getElementById('uc-panel');
+  var pool  = DATA.filter(function(r){
+    if (domainFilter !== 'all' && r.Domain.indexOf(domainFilter) < 0) return false;
+    if (subFilter !== 'all' && subKey(r.UC_Sheet) !== subFilter) return false;
+    return true;
+  });
+  var seen = {}, ucs = [];
+  pool.forEach(function(r){ if (!seen[r.UC_Sheet]) { seen[r.UC_Sheet] = true; ucs.push({ sheet: r.UC_Sheet, title: r.UC_Title || r.UC_Sheet, domain: r.Domain }); } });
+
+  var groups = {};
+  ucs.forEach(function(u){ var dk = domKey(u.domain); if (!groups[dk]) groups[dk] = []; groups[dk].push(u); });
+
+  panel.innerHTML = '';
+  Object.keys(groups).forEach(function(dk) {
+    var lbl = document.createElement('div');
+    lbl.className = 'uc-group-label';
+    lbl.style.color = domColor[dk];
+    lbl.textContent = dk === 'UC1' ? 'Fleet & Signal Discovery' : dk === 'UC2' ? 'ADAS Anomaly Analysis' : 'Pipeline Supervision';
+    panel.appendChild(lbl);
+
+    groups[dk].forEach(function(u) {
+      var cnt = DATA.filter(function(r){ return r.UC_Sheet === u.sheet; }).length;
+      var el  = document.createElement('div');
+      el.className = 'uc-row' + (activeUC === u.sheet ? ' active' : '');
+      var title = (u.title || u.sheet).replace(/UC[0-9]+\.[0-9]+\s+/, '');
+      el.innerHTML = '<div class="uc-dot" style="background:' + domColor[dk] + '"></div>'
+        + '<div class="uc-name">' + esc(title) + '</div>'
+        + '<div class="uc-count">' + cnt + '</div>';
+      el.onclick = (function(sheet){ return function(){ activeUC = sheet; expandedID = null; renderTable(); renderUCPanel(); }; })(u.sheet);
+      panel.appendChild(el);
+    });
+  });
+}
+
+function renderTable() {
+  var tbody = document.getElementById('q-body');
+  tbody.innerHTML = ''; expandedID = null;
+
+  if (activeUC) {
+    // A specific UC is selected -> show its header + stats
+    var allUC = DATA.filter(function(r){ return r.UC_Sheet === activeUC; });
+    var s0 = allUC[0] || {};
+    var ok    = allUC.filter(function(r){ return statusOfRow(r).toUpperCase() === 'OK'; }).length;
+    var ko    = allUC.filter(function(r){ return statusOfRow(r).toUpperCase() === 'KO'; }).length;
+    var empty = allUC.filter(function(r){ return !statusOfRow(r); }).length;
+    document.getElementById('uc-info').innerHTML = '<h2>' + esc(s0.UC_Title || activeUC) + '</h2><p>' + esc(s0.Context || '') + '</p>';
+    document.getElementById('uc-stats').innerHTML =
+      (ok    ? '<span class="mini-pill s-ok">' + ok + ' OK</span>' : '') +
+      (ko    ? '<span class="mini-pill s-ko">' + ko + ' KO</span>' : '') +
+      (empty ? '<span class="mini-pill s-empty">' + empty + ' not tested</span>' : '');
+  } else {
+    // No UC selected -> show all filtered questions across UCs
+    document.getElementById('uc-info').innerHTML = '<h2>All questions</h2><p>Showing every question matching the current filters. Pick a use case on the left to focus.</p>';
+    document.getElementById('uc-stats').innerHTML = '';
+  }
+
+  var rows = visibleRows();
+  rows.forEach(function(r) {
+    var tr = document.createElement('tr');
+    var rid = String(r.ID || r.UC_Sheet + '_' + r.Question_No || Math.random());
+
+    // Build iterations cell
+    var iterHtml = '<div style="display:flex;flex-direction:column;gap:4px;">';
+    var hasIter = false;
+    ITERS.forEach(function(n) {
+      var st  = (r['Status_Iter'  + n] || '').trim();
+      var ref = (r['Ref_Iter'     + n] || '').trim();
+      if (!st && !ref) return;
+      hasIter = true;
+      iterHtml += '<div style="display:flex;align-items:center;gap:6px;">'
+        + '<span style="font-size:9px;font-weight:700;color:#94A3B8;min-width:36px">Iter ' + n + '</span>'
+        + (st  ? '<span class="s-pill ' + sc(st) + '" style="font-size:9px;padding:1px 7px">' + esc(st) + '</span>' : '')
+        + (ref ? '<span style="font-size:10px;color:#94A3B8;">' + esc(ref) + '</span>' : '')
+        + '</div>';
+    });
+    iterHtml += '</div>';
+
+    tr.innerHTML = '<td class="td-no">' + esc(r.Question_No || '') + '</td>'
+      + '<td class="td-q" style="font-weight:500;line-height:1.4">' + esc(r.Question || '')
+        + (activeUC ? '' : '<div style="font-size:9px;color:#94A3B8;font-weight:700;margin-top:3px">' + esc(subKey(r.UC_Sheet)) + '</div>') + '</td>'
+      + '<td style="vertical-align:middle">' + (hasIter ? iterHtml : '') + '</td>';
+
+    tr.onclick = (function(row, t, id){ return function(){ toggleExp(row, t, id); }; })(r, tr, rid);
+    tbody.appendChild(tr);
+  });
+}
+
+function toggleExp(r, tr, rid) {
+  var old = document.getElementById('exp-row');
+  if (old) {
+    old.remove();
+    document.querySelectorAll('tbody tr').forEach(function(t){ t.classList.remove('expanded'); });
+    if (expandedID === rid) { expandedID = null; return; }
+  }
+  expandedID = rid;
+  tr.classList.add('expanded');
+
+  var tabsHTML = '', panelsHTML = '';
+  ITERS.forEach(function(n) {
+    var s   = (r['Status_Iter'  + n] || '').trim();
+    var ref = (r['Ref_Iter'     + n] || '').trim();
+    var p   = (r['Prompt_Iter'  + n] || '').trim();
+    var isFirst = (n === ITERS[0]);
+
+    tabsHTML += '<div class="iter-tab' + (isFirst ? ' active' : '') + '"'
+      + ' onclick="switchTab(' + n + ')" id="itab-' + n + '">'
+      + 'Iter ' + n
+      + (s   ? ' <span class="s-pill ' + sc(s) + '" style="font-size:9px;padding:1px 6px">' + esc(s) + '</span>' : '')
+      + (ref ? ' <span style="font-size:9px;color:#94A3B8">' + esc(ref) + '</span>' : '')
+      + '</div>';
+
+    panelsHTML += '<div class="iter-panel' + (isFirst ? ' active' : '') + '" id="ipanel-' + n + '">'
+      + '<div class="iter-panel-label">Iter ' + n
+      + (s   ? ' <span class="s-pill ' + sc(s) + '" style="font-size:9px">' + esc(s) + '</span>' : '')
+      + (ref ? ' <span style="font-size:9px;color:#94A3B8;font-weight:400">' + esc(ref) + '</span>' : '')
+      + '</div>'
+      + (p
+          ? '<div class="prompt-box">' + esc(p) + '<button class="copy-btn" onclick="doCopy(event, this)">Copy</button></div>'
+          : '<div class="prompt-none">No prompt recorded for this iteration</div>')
+      + '</div>';
+  });
+
+  var exp = document.createElement('tr');
+  exp.id = 'exp-row'; exp.className = 'exp-row';
+  exp.innerHTML = '<td colspan="3">'
+    + '<div class="iter-tabs">' + tabsHTML + '</div>'
+    + '<div class="iter-panels">' + panelsHTML + '</div>'
+    + '</td>';
+  tr.insertAdjacentElement('afterend', exp);
+}
+
+function switchTab(n) {
+  document.querySelectorAll('.iter-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.iter-panel').forEach(function(p){ p.classList.remove('active'); });
+  var t = document.getElementById('itab-' + n);
+  var p = document.getElementById('ipanel-' + n);
+  if (t) t.classList.add('active');
+  if (p) p.classList.add('active');
+}
+
+function doCopy(e, btn) {
+  e.stopPropagation();
+  var text = btn.parentElement.textContent.replace('Copy', '').trim();
+  navigator.clipboard.writeText(text).then(function(){
+    btn.textContent = 'Copied!';
+    setTimeout(function(){ btn.textContent = 'Copy'; }, 1500);
+  });
+}
+
+// ── VIEW SWITCHING ──
+function switchView(view, btn) {
+  document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+  btn.classList.add('active');
+  var mainBody = document.getElementById('main-body');
+  var slicerRow = document.getElementById('slicer-row');
+  var subRow = document.getElementById('subdomain-row');
+  var submitPanel = document.getElementById('submit-panel');
+  if (view === 'submit') {
+    mainBody.style.display = 'none';
+    slicerRow.style.display = 'none';
+    subRow.style.display = 'none';
+    submitPanel.style.display = 'flex';
+    populateUCSelect();
+  } else {
+    mainBody.style.display = '';
+    slicerRow.style.display = '';
+    subRow.style.display = '';
+    submitPanel.style.display = 'none';
+  }
+}
+
+// ── SUBMIT FORM ──
+function setSubmitType(type, btn) {
+  submitType = type;
+  document.querySelectorAll('.type-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('grp-existing-uc').classList.toggle('hidden', type !== 'questions');
+  document.getElementById('grp-new-uc').classList.toggle('hidden', type === 'questions');
+  document.getElementById('grp-domain').classList.toggle('hidden', type !== 'new-domain');
+}
+
+function populateUCSelect() {
+  var sel = document.getElementById('sel-uc');
+  sel.innerHTML = '<option value="">-- Select a UC --</option>';
+  var seen = {}, ucs = [];
+  DATA.forEach(function(r){ if (!seen[r.UC_Sheet]) { seen[r.UC_Sheet] = true; ucs.push({ sheet: r.UC_Sheet, title: r.UC_Title || r.UC_Sheet }); } });
+  ucs.forEach(function(u) {
+    var opt = document.createElement('option');
+    opt.value = u.sheet;
+    var t = (u.title || u.sheet).replace(/UC[0-9]+\.[0-9]+\s+/, '');
+    opt.textContent = u.sheet + ' - ' + t;
+    sel.appendChild(opt);
+  });
+}
+
+function addQuestionRow() {
+  qCount++;
+  var list = document.getElementById('questions-list');
+  var div  = document.createElement('div');
+  div.className = 'q-add-row';
+  div.id = 'qrow-' + qCount;
+  var ta  = document.createElement('textarea');
+  ta.id   = 'q-' + qCount;
+  ta.placeholder = 'Question ' + qCount + '...';
+  var btn = document.createElement('button');
+  btn.textContent = 'x';
+  btn.title = 'Remove';
+  btn.onclick = (function(n){ return function(){ removeQ(n); }; })(qCount);
+  div.appendChild(ta);
+  div.appendChild(btn);
+  list.appendChild(div);
+}
+
+function removeQ(n) {
+  var el = document.getElementById('qrow-' + n);
+  if (el) el.remove();
+}
+
+function getQuestions() {
+  var qs = [];
+  document.querySelectorAll('#questions-list textarea').forEach(function(ta){ var v = ta.value.trim(); if (v) qs.push(v); });
+  return qs;
+}
+
+function submitForm() {
+  var questions = getQuestions();
+  if (!questions.length) { alert('Please add at least one question.'); return; }
+
+  var rows = [];
+  var name = document.getElementById('inp-name').value.trim();
+  var role = document.getElementById('inp-role').value.trim();
+  var now  = new Date().toISOString().slice(0, 10);
+
+  if (submitType === 'questions') {
+    var uc = document.getElementById('sel-uc').value;
+    if (!uc) { alert('Please select a target UC.'); return; }
+    var ucTitle = '';
+    for (var i = 0; i < DATA.length; i++) { if (DATA[i].UC_Sheet === uc) { ucTitle = DATA[i].UC_Title || uc; break; } }
+    questions.forEach(function(q){
+      rows.push({ Type:'New Question', Domain:'', UC_Sheet:uc, UC_Title:ucTitle, UC_ID:'', UC_Context:'', Question:q, Submitted_By:name, Role:role, Date_Added:now, Source:'Submitted', Status_Iter1:'' });
+    });
+  } else if (submitType === 'new-uc') {
+    var ucId    = document.getElementById('inp-uc-id').value.trim();
+    var ucTitle2 = document.getElementById('inp-uc-title').value.trim();
+    var ucCtx   = document.getElementById('inp-uc-context').value.trim();
+    if (!ucId || !ucTitle2) { alert('Please fill in UC ID and Title.'); return; }
+    questions.forEach(function(q){
+      rows.push({ Type:'New UC', Domain:'', UC_Sheet:ucId, UC_Title:ucTitle2, UC_ID:ucId, UC_Context:ucCtx, Question:q, Submitted_By:name, Role:role, Date_Added:now, Source:'Submitted', Status_Iter1:'' });
+    });
+  } else {
+    var domain   = document.getElementById('inp-domain').value.trim();
+    var ucId2    = document.getElementById('inp-uc-id').value.trim();
+    var ucTitle3 = document.getElementById('inp-uc-title').value.trim();
+    var ucCtx2   = document.getElementById('inp-uc-context').value.trim();
+    if (!domain || !ucId2 || !ucTitle3) { alert('Please fill in Domain, UC ID and Title.'); return; }
+    questions.forEach(function(q){
+      rows.push({ Type:'New Domain', Domain:domain, UC_Sheet:ucId2, UC_Title:ucTitle3, UC_ID:ucId2, UC_Context:ucCtx2, Question:q, Submitted_By:name, Role:role, Date_Added:now, Source:'Submitted', Status_Iter1:'' });
+    });
+  }
+
+  // ── SEND TO POWER AUTOMATE ──
+  var btn = document.getElementById('submit-btn-main');
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  if (!PA_SUBMIT_URL) {
+    // No Power Automate URL yet — add to local DATA for now + show setup instructions
+    rows.forEach(function(r){ DATA.push(r); });
+    populateUCSelect();
+    document.getElementById('submit-form-wrap').style.display = 'none';
+    document.getElementById('submit-success-wrap').style.display = 'block';
+    document.getElementById('submit-success-wrap').innerHTML = [
+      '<div style="font-size:48px;color:#D97706;margin-bottom:12px;">&#9888;</div>',
+      '<h3 style="color:#D97706">Power Automate not configured yet</h3>',
+      '<p>Your question was added to the local view but <strong>not saved to SharePoint</strong>.</p>',
+      '<div style="background:#FEF3C7;border-radius:8px;padding:14px;margin:14px 0;text-align:left;font-size:11px;line-height:1.8;">',
+      '<strong>To enable SharePoint save:</strong><br>',
+      '1. Go to <a href="https://make.powerautomate.com" target="_blank" style="color:#2E5FAC">make.powerautomate.com</a><br>',
+      '2. Create a flow: <strong>When HTTP request received</strong><br>',
+      '3. Add action: <strong>Add a row into a table</strong> &rarr; genie.xlsx &rarr; JarvisData<br>',
+      '4. Copy the HTTP POST URL<br>',
+      '5. Paste it in the HTML file as <code>PA_SUBMIT_URL</code>',
+      '</div>',
+      '<button onclick="resetSubmitForm()" style="padding:8px 20px;background:#1F3864;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;">Submit another</button>'
+    ].join('');
+    btn.textContent = 'Save to Excel (SharePoint)';
+    btn.disabled = false;
+    return;
+  }
+
+  // Power Automate URL configured — send each row
+  var promises = rows.map(function(row) {
+    return fetch(PA_SUBMIT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(row)
+    });
+  });
+
+  Promise.all(promises)
+    .then(function() {
+      // Add to local DATA so tracker updates instantly
+      rows.forEach(function(r){ DATA.push(r); });
+      populateUCSelect();
+      document.getElementById('submit-form-wrap').style.display = 'none';
+      document.getElementById('submit-success-wrap').style.display = 'block';
+      btn.textContent = 'Save to Excel (SharePoint)';
+      btn.disabled = false;
+    })
+    .catch(function(err) {
+      alert('Error saving to SharePoint: ' + err.message);
+      btn.textContent = 'Save to Excel (SharePoint)';
+      btn.disabled = false;
+    });
+}
+
+function resetSubmitForm() {
+  document.getElementById('submit-form-wrap').style.display = 'block';
+  document.getElementById('submit-success-wrap').style.display = 'none';
+  document.getElementById('questions-list').innerHTML = '';
+  ['inp-name','inp-role','inp-uc-id','inp-uc-title','inp-uc-context','inp-domain'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('sel-uc').value = '';
+  qCount = 0;
+  addQuestionRow();
+}
+</script>
+</body>
+</html>
