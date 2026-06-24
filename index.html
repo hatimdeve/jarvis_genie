@@ -934,14 +934,16 @@ function submitForm() {
       return encodeURIComponent(k) + '=' + encodeURIComponent(row[k] || '');
     }).join('&');
 
-    fetch(PA_SUBMIT_URL + '?' + params, {
-      method: 'GET',
-      mode: 'no-cors'
-    }).then(function() {
-      sendNext(index + 1);
-    }).catch(function() {
-      sendNext(index + 1);
-    });
+    fetch(PA_SUBMIT_URL + '?' + params)
+      .then(function(r) { return r.json(); })
+      .then(function(json) {
+        if (json && json.error) console.warn('Sheet write error:', json.error);
+        sendNext(index + 1);
+      })
+      .catch(function(err) {
+        console.error('Write failed:', err);
+        sendNext(index + 1);
+      });
   };
   sendNext(0);
 }
