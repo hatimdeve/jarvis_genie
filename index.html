@@ -915,48 +915,35 @@ function submitForm() {
   }
 
   // Power Automate URL configured — send each row
-  // Google Apps Script requires form submission for CORS-free POST
-  var sent = 0;
-  rows.forEach(function(row) {
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = PA_SUBMIT_URL;
-    form.target = 'hidden_iframe_' + Date.now();
-    form.style.display = 'none';
+  // Send rows one by one using no-cors (fire and forget — no response needed)
+  var sendNext = function(index) {
+    if (index >= rows.length) {
+      // All sent — update local view
+      rows.forEach(function(r){ DATA.push(r); });
+      populateUCSelect();
+      render();
+      document.getElementById('submit-form-wrap').style.display = 'none';
+      document.getElementById('submit-success-wrap').style.display = 'block';
+      btn.textContent = 'Save to Excel (SharePoint)';
+      btn.disabled = false;
+      return;
+    }
+    var row = rows[index];
+    // Encode as URL params — Google Apps Script reads e.parameter
+    var params = 'action=write&' + Object.keys(row).map(function(k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(row[k] || '');
+    }).join('&');
 
-    // Create hidden iframe to avoid page redirect
-    var iframe = document.createElement('iframe');
-    iframe.name = form.target;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    // Add data as hidden input
-    var input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'data';
-    input.value = JSON.stringify(row);
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-    form.submit();
-
-    // Add to local DATA immediately
-    DATA.push(row);
-    sent++;
-
-    // Cleanup after 3 seconds
-    setTimeout(function() {
-      if (form.parentNode) form.parentNode.removeChild(form);
-      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-    }, 3000);
-  });
-
-  populateUCSelect();
-  document.getElementById('submit-form-wrap').style.display = 'none';
-  document.getElementById('submit-success-wrap').style.display = 'block';
-  btn.textContent = 'Save to Excel (SharePoint)';
-  btn.disabled = false;
-  render();
+    fetch(PA_SUBMIT_URL + '?' + params, {
+      method: 'GET',
+      mode: 'no-cors'
+    }).then(function() {
+      sendNext(index + 1);
+    }).catch(function() {
+      sendNext(index + 1);
+    });
+  };
+  sendNext(0);
 }
 
 function resetSubmitForm() {
